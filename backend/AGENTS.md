@@ -23,11 +23,14 @@ backend/
 ├── app/
 │   ├── main.py              # FastAPI construction and dependency wiring
 │   ├── config.py            # Provider settings and fixed application config
-│   ├── invoices/            # HTTP, orchestration, persistence, and policy by module
+│   ├── documents/           # HTTP, orchestration, persistence, projection, and policy
+│   ├── pipeline/            # Ordered classify → extract → review → validate → GL steps
 │   ├── accounting/          # Fixed GL catalog and validated selections
 │   ├── document_review/     # Provider-independent review and reconciliation
 │   ├── correction_email/    # Eligibility and provider-independent draft models
-│   └── providers/           # Azure SDK adapters; SDK types stop here
+│   ├── schemas/             # Typed Document Intelligence invoice/receipt models
+│   ├── services/            # Thin Azure clients used by pipeline/playground
+│   └── providers/           # Azure OpenAI adapters; SDK types stop here
 ├── scripts/                 # Explicit provider checks and corpus evaluations
 ├── pyproject.toml
 └── uv.lock
@@ -82,3 +85,5 @@ uv run --locked --no-sync ruff check app scripts
 Provider checks and corpus evaluations may consume paid or limited Azure capacity. Document the tier, expected calls, limits, and cleanup command before running them. Complete verification also includes startup readiness and the manual end-to-end workflow.
 
 Do not add `tests/`, `pytest`, or committed automated test files. This weekly teaching project uses linting, explicit provider/corpus checks, and manual workflow verification as defined by the root instructions.
+
+If the SQLite schema changes during development, delete `backend/data/documents.db` so `create_all` recreates the table with the new columns.

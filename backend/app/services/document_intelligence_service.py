@@ -5,27 +5,19 @@ from pathlib import Path
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, AnalyzeResult
 from azure.core.credentials import AzureKeyCredential
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.config import Settings, get_settings
 
 PREBUILT_INVOICE_MODEL = "prebuilt-invoice"
 PREBUILT_RECEIPT_MODEL = "prebuilt-receipt"
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-
-class DocumentIntelligenceSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=BACKEND_ROOT / ".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    azure_document_intelligence_endpoint: str
-    azure_document_intelligence_key: str
+# Backwards-compatible alias for playground scripts.
+DocumentIntelligenceSettings = Settings
 
 
 class DocumentIntelligenceService:
-    def __init__(self, settings: DocumentIntelligenceSettings | None = None) -> None:
-        resolved_settings = settings or DocumentIntelligenceSettings()
+    def __init__(self, settings: Settings | None = None) -> None:
+        resolved_settings = settings or get_settings()
         self._client = DocumentIntelligenceClient(
             endpoint=resolved_settings.azure_document_intelligence_endpoint,
             credential=AzureKeyCredential(resolved_settings.azure_document_intelligence_key),

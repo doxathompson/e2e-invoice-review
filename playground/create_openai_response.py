@@ -15,12 +15,9 @@ import json
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_ROOT = REPO_ROOT / "backend"
+sys.path.append(str(Path(__file__).resolve().parents[1] / "backend"))
 
-sys.path.insert(0, str(BACKEND_ROOT))
-
-from app.services.azure_openai_service import AzureOpenAIService  # noqa: E402
+from app.services.azure_openai_service import AzureOpenAIService
 
 
 def main() -> None:

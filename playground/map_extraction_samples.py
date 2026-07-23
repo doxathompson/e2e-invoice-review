@@ -12,11 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-BACKEND_ROOT = REPO_ROOT / "backend"
+sys.path.append(str((REPO_ROOT := Path(__file__).resolve().parents[1]) / "backend"))
 MANIFEST_PATH = REPO_ROOT / "samples" / "manifest.json"
-
-sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.schemas.invoice.mapping import (  # noqa: E402
     invoice_to_manifest_view,
@@ -64,11 +61,15 @@ def compare_manifest(
         mapped_value = mapped.get(field)
         expected_value = expected_view.get(field)
         status = "match" if mapped_value == expected_value else "diff"
-        print(f"  {field}: mapped={mapped_value!r} expected={expected_value!r} [{status}]")
+        print(
+            f"  {field}: mapped={mapped_value!r} expected={expected_value!r} [{status}]"
+        )
 
 
 def summarize_core_fields(mapped: dict[str, str | None]) -> None:
-    populated = [field for field in CORE_MANIFEST_FIELDS if mapped.get(field) is not None]
+    populated = [
+        field for field in CORE_MANIFEST_FIELDS if mapped.get(field) is not None
+    ]
     missing = [field for field in CORE_MANIFEST_FIELDS if mapped.get(field) is None]
     print(f"  populated ({len(populated)}): {', '.join(populated) or '-'}")
     print(f"  missing ({len(missing)}): {', '.join(missing) or '-'}")

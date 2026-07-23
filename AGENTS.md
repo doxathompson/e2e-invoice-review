@@ -13,13 +13,13 @@ Read `docs/client-brief.md`, `docs/architecture.md`, and `docs/build-along.md` b
 
 ## Boundaries
 
-- Azure SDK types stop in `backend/app/providers/azure_document_intelligence.py`.
-- OpenAI SDK types stop in the provider adapters under `backend/app/providers/`, including document review, GL suggestion, and correction-email drafting.
-- The document reviewer receives the original PDF/PNG/JPEG and returns classification plus provider-independent structured fields. Document Intelligence remains primary; deterministic merging only fills its missing fields and exposes provenance.
-- The GL categorizer receives normalized invoice fields only.
+- Azure SDK types stop in provider adapters under `backend/app/providers/` (and thin Document Intelligence clients under `backend/app/services/`).
+- OpenAI SDK types stop in the provider adapters under `backend/app/providers/`, including document review and correction-email drafting. Classification and GL suggestion use pydantic-ai against Azure OpenAI settings from `config.py`.
+- The document reviewer receives the original PDF/PNG/JPEG and returns provider-independent structured fields. Document Intelligence remains primary; deterministic merging only fills its missing fields and exposes provenance.
+- The GL categorizer receives normalized review fields only.
 - The GL catalog and selection validation live in `backend/app/accounting/`; model output never becomes business policy.
-- Business rules live in `backend/app/invoices/validation.py` and must be pure.
-- HTTP concerns live in `routes.py`; orchestration lives in `service.py`; SQLite access lives in `repository.py`.
+- Business rules live in `backend/app/documents/validation.py` and must be pure.
+- HTTP concerns live in `routes.py`; orchestration lives in `service.py`; SQLite access lives in `repository.py`; ordered Azure work lives in `pipeline/`.
 - Once those modules are introduced, settings are read only through `backend/app/config.py` and `frontend/src/lib/env.ts`.
 - Do not add auth, queues, workers, deployment, batch processing, email ingestion/sending, or accounting integrations.
 - Receipt processing uses the same normalized financial-document data and a separate deterministic policy. Live VIES registration lookup remains outside the build.
