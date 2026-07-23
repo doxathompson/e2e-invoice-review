@@ -353,3 +353,53 @@ Manual demo set: `02-nl-happy-compact.pdf` (approve), `06-de-invalid-vendor-vat.
 - [ ] You can approve a clean sample and reject a broken one in the browser.
 - [ ] You can explain why Document Intelligence remains primary over the LLM fallback.
 - [ ] Corpus evaluator field accuracy is high and policy codes match the manifest (except duplicate, which needs a peer in SQLite).
+
+## Deploy a single container to Azure
+
+### Outcome
+
+The FastAPI API and React SPA run as one container in Azure Container Apps inside `rg-invoice-review`, with SQLite/uploads on Azure Files and a shared-password login gate so a public URL cannot freely burn Azure quota.
+
+### Why this boundary exists
+
+Local development stays two processes (`./scripts/dev.sh`). Production collapses to one origin so cookies and relative API calls stay simple. Auth is one shared password plus an HMAC session cookie — not accounts or Entra for the app itself. Provider calls still use API keys from Container App secrets.
+
+### Commands
+
+See [azure-deploy.md](azure-deploy.md) for the full `az` sequence. Summary:
+
+```bash
+# Confirm context
+az account show
+az group show --name rg-invoice-review
+
+# Build image in ACR, create Files share + Container Apps env/app
+# (exact resource names and secret wiring are in azure-deploy.md)
+
+# Local verification before/without Azure
+cd backend && uv run --locked --no-sync ruff check app scripts
+cd ../frontend && pnpm exec tsc -b --pretty false && pnpm lint && VITE_API_BASE_URL=/ pnpm build
+```
+
+### Important locations
+
+- `Dockerfile`, `.dockerignore`
+- `backend/app/main.py` (static SPA + password middleware)
+- `backend/app/auth/`
+- `backend/app/config.py` (`APP_ACCESS_PASSWORD`, `APP_SESSION_SECRET`, `ALLOWED_ORIGIN`, `FRONTEND_DIST_DIR`)
+- `frontend/src/components/LoginPage.tsx`, `frontend/src/App.tsx`, `frontend/src/lib/api.ts`, `frontend/src/lib/env.ts`
+- `docs/azure-deploy.md`
+
+### What you should observe
+
+- `GET /health` returns `{"status":"ok"}` without a cookie.
+- `GET /api/documents` returns `401` until you sign in with the shared password.
+- After login, the familiar upload → process → review flow works on the Container App HTTPS URL.
+- Restarting the Container App revision does not wipe SQLite/uploads when `/app/data` is mounted from Azure Files.
+
+### Checkpoint
+
+- [ ] Backend lint and frontend type-check/lint/build pass.
+- [ ] Container image builds (`az acr build` or local Docker).
+- [ ] Deployed `/health` is open; API is gated; browser login unlocks a sample upload.
+- [ ] You can tear down hosting resources without deleting the whole resource group.

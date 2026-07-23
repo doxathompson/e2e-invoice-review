@@ -1,8 +1,26 @@
 import { apiBaseUrl } from './env'
 import type { CorrectionEmailDraft, Document, GlAccount, ReviewData } from './types'
 
+export class UnauthorizedError extends Error {
+  constructor(message = 'Authentication required') {
+    super(message)
+    this.name = 'UnauthorizedError'
+  }
+}
+
+export interface AuthSession {
+  auth_enabled: boolean
+  authenticated: boolean
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init)
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    credentials: 'include',
+  })
+  if (response.status === 401) {
+    throw new UnauthorizedError()
+  }
   if (!response.ok) {
     let message = `Request failed (${response.status})`
     try {
@@ -19,6 +37,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T
   }
   return response.json() as Promise<T>
+}
+
+export function getAuthSession(): Promise<AuthSession> {
+  return request<AuthSession>('/api/auth/session')
+}
+
+export function login(password: string): Promise<AuthSession> {
+  return request<AuthSession>('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+}
+
+export function logout(): Promise<AuthSession> {
+  return request<AuthSession>('/api/auth/logout', { method: 'POST' })
 }
 
 export function listDocuments(): Promise<Document[]> {

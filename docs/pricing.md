@@ -10,7 +10,8 @@ Pricing checked on 2026-07-19 for the project's Document Intelligence resource a
 | Azure Document Intelligence | F0 in West Europe | €0 | First 500 analyzed pages per month are free |
 | Azure OpenAI `gpt-5.6-terra` | Global Standard in Sweden Central | $0 | Two token-metered calls per upload; an optional third call only when a correction email is requested |
 | FastAPI, React, SQLite, uploaded files | Developer machine | No Azure charge | Local resources only |
-| Hosting, managed database, object storage | Not deployed | €0 | €0 |
+| Azure Container Apps (optional demo host) | Consumption in West Europe | Small standing cost for ACR/storage while provisioned | Same DI/OpenAI usage as local; shared password gate |
+| Managed database / object storage beyond Azure Files | Not used | €0 | SQLite + uploads on an Azure Files mount |
 
 The public short-context meters used here are $2.50 per million input tokens and $15.00 per million output tokens. The recognition/review call sends the source PDF, PNG, or JPEG to Azure OpenAI. It classifies the document and can supplement fields left empty by Document Intelligence. The GL suggestion sends only normalized fields and the fixed account catalog. A correction-email request sends normalized fields plus supplier-fixable issues, not the source file.
 

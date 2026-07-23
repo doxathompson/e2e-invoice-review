@@ -1,24 +1,39 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DocumentInbox } from './components/DocumentInbox'
 import { DocumentReview } from './components/DocumentReview'
+import { LoginPage } from './components/LoginPage'
 import { ProcessingStep } from './components/ProcessingStep'
 import { UploadStep } from './components/UploadStep'
 import { WelcomePortal } from './components/WelcomePortal'
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
-import { deleteDocument, listDocuments, listGlAccounts, uploadDocument } from './lib/api'
+import {
+  UnauthorizedError,
+  deleteDocument,
+  getAuthSession,
+  listDocuments,
+  listGlAccounts,
+  login,
+  logout,
+  uploadDocument,
+} from './lib/api'
 import type { Document, GlAccount } from './lib/types'
 
 type View = 'welcome' | 'upload' | 'processing' | 'result' | 'history'
+type AuthState = 'loading' | 'login' | 'ready'
 
 function AppHeader({
   onHome,
   onNew,
   onHistory,
+  onLogout,
+  showLogout,
 }: {
   onHome: () => void
   onNew: () => void
   onHistory: () => void
+  onLogout?: () => void
+  showLogout: boolean
 }) {
   return (
     <header className="border-b border-zinc-200 bg-white">
@@ -34,6 +49,11 @@ function AppHeader({
           <Button onClick={onNew} size="sm">
             New review
           </Button>
+          {showLogout && onLogout && (
+            <Button onClick={onLogout} variant="outline" size="sm">
+              Sign out
+            </Button>
+          )}
         </nav>
       </div>
     </header>
@@ -41,6 +61,8 @@ function AppHeader({
 }
 
 function App() {
+  const [authState, setAuthState] = useState<AuthState>('loading')
+  const [authEnabled, setAuthEnabled] = useState(false)
   const [view, setView] = useState<View>('welcome')
   const [file, setFile] = useState<File | null>(null)
   const [selected, setSelected] = useState<Document | null>(null)
@@ -50,25 +72,61 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  const handleUnauthorized = useCallback(() => {
+    if (authEnabled) {
+      setAuthState('login')
+    }
+  }, [authEnabled])
+
   const refreshAccounts = useCallback(async () => {
     setAccountsLoading(true)
     try {
       setAccounts(await listGlAccounts())
-    } catch {
+    } catch (reason) {
+      if (reason instanceof UnauthorizedError) {
+        handleUnauthorized()
+        return
+      }
       setAccounts([])
     } finally {
       setAccountsLoading(false)
     }
+  }, [handleUnauthorized])
+
+  useEffect(() => {
+    let active = true
+    void getAuthSession()
+      .then((session) => {
+        if (!active) return
+        setAuthEnabled(session.auth_enabled)
+        if (session.auth_enabled && !session.authenticated) {
+          setAuthState('login')
+          return
+        }
+        setAuthState('ready')
+      })
+      .catch(() => {
+        if (active) setAuthState('ready')
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
+    if (authState !== 'ready') return
     let active = true
     void listGlAccounts()
       .then((loaded) => {
         if (active) setAccounts(loaded)
       })
-      .catch(() => {
-        if (active) setAccounts([])
+      .catch((reason: unknown) => {
+        if (!active) return
+        if (reason instanceof UnauthorizedError) {
+          handleUnauthorized()
+          return
+        }
+        setAccounts([])
       })
       .finally(() => {
         if (active) setAccountsLoading(false)
@@ -76,7 +134,25 @@ function App() {
     return () => {
       active = false
     }
-  }, [])
+  }, [authState, handleUnauthorized])
+
+  async function handleLogin(password: string) {
+    const session = await login(password)
+    setAuthEnabled(session.auth_enabled)
+    setAuthState('ready')
+  }
+
+  async function handleLogout() {
+    await logout()
+    setView('welcome')
+    setFile(null)
+    setSelected(null)
+    setDocuments([])
+    setError(null)
+    if (authEnabled) {
+      setAuthState('login')
+    }
+  }
 
   function startReview() {
     setFile(null)
@@ -92,6 +168,10 @@ function App() {
     try {
       setDocuments(await listDocuments())
     } catch (reason) {
+      if (reason instanceof UnauthorizedError) {
+        handleUnauthorized()
+        return
+      }
       setError(reason instanceof Error ? reason.message : 'Could not load review history.')
     } finally {
       setHistoryLoading(false)
@@ -109,6 +189,10 @@ function App() {
       if (!accountsLoading && accounts.length === 0) void refreshAccounts()
       setView('result')
     } catch (reason) {
+      if (reason instanceof UnauthorizedError) {
+        handleUnauthorized()
+        return
+      }
       setError(reason instanceof Error ? reason.message : 'Could not process the document.')
       setView('upload')
     }
@@ -135,6 +219,10 @@ function App() {
         setSelected(null)
       }
     } catch (reason) {
+      if (reason instanceof UnauthorizedError) {
+        handleUnauthorized()
+        return
+      }
       const message = reason instanceof Error ? reason.message : 'Could not delete the document.'
       setError(message)
       throw reason
@@ -146,10 +234,32 @@ function App() {
     setView('welcome')
   }
 
+  if (authState === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500">
+        Loading…
+      </div>
+    )
+  }
+
+  if (authState === 'login') {
+    return (
+      <div className="min-h-screen bg-zinc-50 text-zinc-950">
+        <LoginPage onSubmit={handleLogin} />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950">
       {view !== 'welcome' && (
-        <AppHeader onHome={home} onNew={startReview} onHistory={() => void openHistory()} />
+        <AppHeader
+          onHome={home}
+          onNew={startReview}
+          onHistory={() => void openHistory()}
+          onLogout={() => void handleLogout()}
+          showLogout={authEnabled}
+        />
       )}
 
       {view === 'welcome' && (
